@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Sheets"
+  short_description: "Read and update Google Sheets with live context"
+  default_prompt: "Use $google-sheets to inspect a sheet, keep the conversation grounded in the live spreadsheet, and update explicit ranges when needed."
