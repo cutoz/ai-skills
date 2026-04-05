@@ -43,7 +43,7 @@ Read before any write or formatting change. Use `read_sheet.py` to inspect the r
 Translate the user request into explicit A1 targets. For populated existing-cell edits, inspect the exact target cells first and use the returned `chunk_id` and `revision` values. Do not write vague intents directly.
 
 ### Step 4
-For broad edits or overwrites, use `preview_changes.py` first. Bulk updates to existing populated cells are discouraged unless they go through `change_bulk_cell.py`.
+For broad edits or overwrites, use `preview_changes.py` first. Direct populated-cell bulk rewrites are prohibited. Existing populated multi-cell edits must go through `change_bulk_cell.py`.
 
 ### Step 5
 Use `write_sheet.py` only to fill empty cells or empty regions. If existing cell content must change, use `change_cell.py` for one cell or `change_bulk_cell.py` for populated ranges.
@@ -165,7 +165,7 @@ Prefer this over `write_sheet.py` when:
 
 ### `change_bulk_cell.py`
 
-Use this when the user wants to modify an existing populated range and the change spans multiple cells.
+Use this when the user wants to modify existing populated cells across multiple cells.
 
 Capabilities:
 - reread each exact target cell before editing
@@ -183,6 +183,7 @@ Rules:
 - Use preview mode first. Apply only after the chunk diff is correct.
 - If any cell has changed since inspect, the whole batch should be treated as stale and re-inspected.
 - Use `--stage` to store validated operations in the active draft instead of applying immediately.
+- Do not bypass this command with direct `values.batchUpdate` or ad hoc `spreadsheets.batchUpdate` content edits for populated cells.
 
 Example:
 
@@ -194,7 +195,7 @@ uv run --project ~/.codex/skills/google-sheets python ~/.codex/skills/google-she
 uv run --project ~/.codex/skills/google-sheets python ~/.codex/skills/google-sheets/scripts/change_bulk_cell.py --spreadsheet "weekly tracker" --stage --json '{"operations":[{"tab":"Sheet1","cell":"B3","action":"replace_chunks","expected_revision":"<revision>","chunk_ids":["c1"],"replacement_chunks":[{"text":"🚦"}]}]}'
 ```
 
-Use this instead of ad hoc raw `batchUpdate` content rewrites. Existing populated multi-cell edits should be explicit, chunk-based, and intentional.
+This is the only sanctioned path for populated multi-cell content edits. Existing populated multi-cell edits must be explicit, chunk-based, and intentional.
 
 Example multi-cell payload with formatting-preserving chunk replacements:
 
@@ -286,13 +287,15 @@ Example:
 - Before attempting any write or formatting operation, reread the exact target tab/range first. Never rely on earlier reads or memory when the current sheet structure matters.
 - Reread live sheet data when accuracy matters.
 - Preserve untouched cells by writing only the intended ranges.
-- Avoid bulk overwrites of existing populated cells. Treat `write_sheet.py` as fill-only.
-- Do not use raw `spreadsheets.batchUpdate` or `values.batchUpdate` directly for populated multi-cell content rewrites when `change_bulk_cell.py` covers the need.
+- `write_sheet.py` is fill-only. It must not modify existing populated cells.
+- Do not use raw `spreadsheets.batchUpdate` or `values.batchUpdate` directly for populated multi-cell content rewrites.
+- Existing populated single-cell edits must go through `change_cell.py`.
+- Existing populated multi-cell edits must go through `change_bulk_cell.py`.
 - For chunk-based edits, the correct sequence is always: `inspect` -> capture `chunk_id` and `revision` -> preview -> apply.
 - For deferred edits, the correct sequence is: `draft create` -> inspect -> `--stage` edits -> `draft show` -> `draft commit`.
 - `chunk_id` values are ephemeral selectors for the current inspected state, not persistent semantic IDs.
 - For visual patterns or arbitrary layouts, compute the target cell grid explicitly, then write it.
 - For formatting, prefer `format_sheet.py` after values are in place.
 - For partial single-cell rewrites with mixed styling, prefer `change_cell.py` with chunk IDs over `write_sheet.py`.
-- For populated multi-cell edits, prefer `change_bulk_cell.py` with chunk IDs over direct bulk rewrites.
+- For populated multi-cell edits, use `change_bulk_cell.py` with chunk IDs. Direct populated-cell bulk rewrites are prohibited.
 - If the user says "my tracker" or similar and an alias exists, use it. If the reference is ambiguous, clarify before writing.
